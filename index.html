@@ -210,27 +210,28 @@
         
         // --- ESTADO DE LA APLICACIÓN ---
         let targetAngle = 290;
-        const CENTER_X = 250; 
+        const CENTER_X = 300; // Ajustado para centrar mejor en el canvas de 600
         const CENTER_Y = 250;
-        const P_RADIUS = 200; // Radio del transportador
+        const P_RADIUS = 200; 
 
         let showProtractor = false;
-        let protractorFlipped = false; // false = arriba (0-180), true = abajo (180-360)
+        let protractorFlipped = false; 
         
-        let currentTool = null; // 'pencil' o 'ruler'
+        let currentTool = null; 
         
-        // Lo que el usuario dibuja
-        let userPoint = null; // {x, y}
-        let userRay = null;   // {x, y} punto final de la línea
+        let userPoint = null; 
+        let userRay = null;   
         
         let isDrawingLine = false;
         let mousePos = {x: 0, y: 0};
 
+        // Variable para guardar la posición táctil
+        let lastTouchPos = null;
+
         // --- INICIALIZACIÓN ---
         function generateMission() {
-            // Genera un ángulo aleatorio múltiplo de 5 para facilitar el dibujo (entre 20 y 340)
             targetAngle = Math.floor(Math.random() * 65 + 4) * 5; 
-            if (targetAngle === 180) targetAngle = 175; // Evitar el 180 exacto para que sea más divertido
+            if (targetAngle === 180) targetAngle = 175; 
             
             document.getElementById('targetDisplay').innerText = targetAngle + "°";
             clearDrawing();
@@ -293,38 +294,23 @@
         }
 
         // --- MATEMÁTICAS Y VERIFICACIÓN ---
-        // Convierte grados matemáticos estándar al sistema del Canvas (Y invertido)
-        function getCanvasRadian(deg) {
-            return -deg * Math.PI / 180;
-        }
-
         function checkAngle() {
             if (!userRay) {
                 showFeedback("¡Primero usa la regla para trazar la línea!", false);
                 return;
             }
 
-            // Calcular el ángulo de la línea dibujada
-            // atan2(y, x). Recordar que en canvas, Y crece hacia abajo.
             let dx = userRay.x - CENTER_X;
             let dy = userRay.y - CENTER_Y;
             
             let rad = Math.atan2(dy, dx); 
-            // Convertir de -PI/PI a grados
             let deg = rad * 180 / Math.PI;
             
-            // En canvas:
-            // derecha = 0°
-            // abajo = 90° (que para el estudiante es 360-90 = 270°)
-            // izquierda = 180°
-            // arriba = -90° (que para el estudiante es 90°)
+            let mathDeg = -deg; 
+            if (mathDeg < 0) mathDeg += 360; 
             
-            let mathDeg = -deg; // Invertir el eje Y
-            if (mathDeg < 0) mathDeg += 360; // Normalizar a 0-360
-            
-            // Tolerancia de 3 grados (para permitir pequeños errores de pulso)
             let diff = Math.abs(mathDeg - targetAngle);
-            if (diff > 180) diff = 360 - diff; // Por si cruza el 0
+            if (diff > 180) diff = 360 - diff; 
             
             if (diff <= 3) {
                 showFeedback(`¡Perfecto! Dibujaste ${Math.round(mathDeg)}°`, true);
@@ -332,7 +318,7 @@
                 showFeedback(`Casi... Ese ángulo mide ${Math.round(mathDeg)}°. ¡Inténtalo de nuevo!`, false);
             }
             
-            drawScene(); // Redibuja para asegurar que se muestre el arco
+            drawScene(); 
         }
 
         // --- DIBUJO DEL CANVAS ---
@@ -345,59 +331,55 @@
                 drawProtractor();
             }
             
-            // Si el usuario está trazando con la regla (fase de arrastre)
             if (isDrawingLine && currentTool === 'ruler') {
                 ctx.beginPath();
                 ctx.moveTo(CENTER_X, CENTER_Y);
                 ctx.lineTo(mousePos.x, mousePos.y);
-                ctx.strokeStyle = "rgba(0, 0, 0, 0.3)"; // Línea previa gris
+                ctx.strokeStyle = "rgba(0, 0, 0, 0.3)"; 
                 ctx.lineWidth = 3;
                 ctx.setLineDash([5, 5]);
                 ctx.stroke();
                 ctx.setLineDash([]);
             }
 
-            // Dibujar la línea final del usuario
             if (userRay) {
                 ctx.beginPath();
                 ctx.moveTo(CENTER_X, CENTER_Y);
                 
-                // Extender la línea visualmente un poco más allá del punto para que parezca un rayo
                 let dx = userRay.x - CENTER_X;
                 let dy = userRay.y - CENTER_Y;
                 let len = Math.hypot(dx, dy);
-                let extX = CENTER_X + (dx/len) * 250;
-                let extY = CENTER_Y + (dy/len) * 250;
+                
+                // Evitar división por cero
+                if (len === 0) return;
+                
+                let extX = CENTER_X + (dx/len) * 280;
+                let extY = CENTER_Y + (dy/len) * 280;
 
                 ctx.lineTo(extX, extY);
                 ctx.strokeStyle = "#343a40";
                 ctx.lineWidth = 4;
                 ctx.stroke();
 
-                // DIBUJAR EL ARCO DEL ÁNGULO RESULTANTE
                 let radFinal = Math.atan2(dy, dx);
                 let mathDeg = -radFinal * 180 / Math.PI;
                 if (mathDeg < 0) mathDeg += 360;
 
                 ctx.beginPath();
-                // Si el ángulo es mayor a 180, el arco debe dibujarse por "afuera"
-                // En canvas: arc(x, y, radius, startAngle, endAngle, counterclockwise)
-                // Start = 0 (derecha). 
                 if (mathDeg > 180) {
                     ctx.arc(CENTER_X, CENTER_Y, 40, 0, radFinal, true); 
                 } else {
-                    ctx.arc(CENTER_X, CENTER_Y, 40, 0, radFinal, true); // En canvas hacia arriba es negativo (counterclockwise = true)
+                    ctx.arc(CENTER_X, CENTER_Y, 40, 0, radFinal, true); 
                 }
-                ctx.strokeStyle = "rgba(220, 53, 69, 0.7)"; // Rojo
+                ctx.strokeStyle = "rgba(220, 53, 69, 0.7)"; 
                 ctx.lineWidth = 10;
                 ctx.stroke();
             }
 
-            // Dibujar el punto del usuario encima de todo
             if (userPoint) {
                 ctx.beginPath();
                 ctx.arc(userPoint.x, userPoint.y, 5, 0, Math.PI * 2);
-                ctx.fillStyle = "#dc3545"; // Punto rojo
+                ctx.fillStyle = "#dc3545"; 
                 ctx.fill();
                 ctx.strokeStyle = "white";
                 ctx.lineWidth = 2;
@@ -406,13 +388,11 @@
         }
 
         function drawBaseElements() {
-            // Vértice central
             ctx.beginPath();
             ctx.arc(CENTER_X, CENTER_Y, 6, 0, Math.PI * 2);
             ctx.fillStyle = "#333";
             ctx.fill();
 
-            // Línea Base (0°) hacia la derecha (Sólida)
             ctx.beginPath();
             ctx.moveTo(CENTER_X, CENTER_Y);
             ctx.lineTo(CENTER_X + 280, CENTER_Y);
@@ -420,7 +400,6 @@
             ctx.lineWidth = 4;
             ctx.stroke();
 
-            // Línea Base (180°) hacia la izquierda (Punteada - guía visual)
             ctx.beginPath();
             ctx.setLineDash([8, 8]);
             ctx.moveTo(CENTER_X, CENTER_Y);
@@ -435,25 +414,21 @@
             ctx.save();
             ctx.translate(CENTER_X, CENTER_Y);
             
-            // Si está invertido, rotar el contexto para dibujar la mitad inferior
             if (protractorFlipped) {
                 ctx.rotate(Math.PI); 
             }
 
-            // Cuerpo del transportador
             ctx.beginPath();
             ctx.arc(0, 0, P_RADIUS, Math.PI, 0, false);
             ctx.lineTo(P_RADIUS, 0);
             ctx.lineTo(-P_RADIUS, 0);
-            ctx.fillStyle = "rgba(182, 215, 168, 0.85)"; // Verde suave como en la imagen
+            ctx.fillStyle = "rgba(182, 215, 168, 0.85)"; 
             ctx.fill();
             ctx.strokeStyle = "#38761d";
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // Marcas y números
             for (let i = 0; i <= 180; i++) {
-                // En canvas normal, -PI va por arriba
                 let rad = -i * Math.PI / 180;
                 let cosA = Math.cos(rad);
                 let sinA = Math.sin(rad);
@@ -467,8 +442,6 @@
                 ctx.stroke();
 
                 if (i % 10 === 0) {
-                    // Para que los números no queden de cabeza cuando giramos el transportador, 
-                    // debemos corregir la rotación del texto temporalmente.
                     ctx.save();
                     let textX = (P_RADIUS - 25) * cosA;
                     let textY = (P_RADIUS - 25) * sinA;
@@ -476,10 +449,9 @@
                     ctx.translate(textX, textY);
                     
                     if (protractorFlipped) {
-                        ctx.rotate(Math.PI); // Enderezar el texto
+                        ctx.rotate(Math.PI); 
                     }
 
-                    // Escala Principal (0 a la derecha)
                     let num = i; 
                     
                     ctx.textAlign = "center";
@@ -487,37 +459,34 @@
                     ctx.font = "12px Arial";
                     ctx.fillStyle = "#111";
                     
-                    // Solo dibujamos la escala principal para forzarlos a pensar
                     ctx.fillText(num, 0, 0);
-                    
                     ctx.restore();
                 }
             }
             
-            // Punto central del transportador
             ctx.beginPath();
             ctx.arc(0, 0, 4, 0, Math.PI*2);
-            ctx.fillStyle = "#dc3545"; // Rojo
+            ctx.fillStyle = "#dc3545"; 
             ctx.fill();
 
             ctx.restore();
         }
 
         // --- EVENTOS DEL MOUSE ---
-        function getMousePos(evt) {
+        function getMousePos(clientX, clientY) {
             let rect = canvas.getBoundingClientRect();
             let scaleX = canvas.width / rect.width;
             let scaleY = canvas.height / rect.height;
             return {
-                x: (evt.clientX - rect.left) * scaleX,
-                y: (evt.clientY - rect.top) * scaleY
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
             };
         }
 
         canvas.addEventListener('mousemove', function(evt) {
-            mousePos = getMousePos(evt);
+            mousePos = getMousePos(evt.clientX, evt.clientY);
             if (isDrawingLine && currentTool === 'ruler') {
-                drawScene(); // Actualizar la línea de preview
+                drawScene(); 
             }
         });
 
@@ -527,30 +496,27 @@
                 return;
             }
 
-            let pos = getMousePos(evt);
+            let pos = getMousePos(evt.clientX, evt.clientY);
 
             if (currentTool === 'pencil') {
-                // Colocar punto (solo si da clic lejos del centro)
                 let dist = Math.hypot(pos.x - CENTER_X, pos.y - CENTER_Y);
                 if (dist > 20) {
                     userPoint = { x: pos.x, y: pos.y };
-                    // Resetear la línea si marcan un punto nuevo
                     userRay = null; 
                     drawScene();
                 }
             } 
             else if (currentTool === 'ruler') {
-                // Iniciar trazado de línea
                 isDrawingLine = true;
+                mousePos = pos;
             }
         });
 
         canvas.addEventListener('mouseup', function(evt) {
             if (isDrawingLine && currentTool === 'ruler') {
                 isDrawingLine = false;
-                let pos = getMousePos(evt);
+                let pos = getMousePos(evt.clientX, evt.clientY);
                 
-                // Si trazó cerca de su punto guía, hacer que "encaje" (Snap)
                 if (userPoint) {
                     let distToPoint = Math.hypot(pos.x - userPoint.x, pos.y - userPoint.y);
                     if (distToPoint < 30) {
@@ -558,7 +524,6 @@
                     }
                 }
                 
-                // Validar que la línea no sea muy corta
                 let distToCenter = Math.hypot(pos.x - CENTER_X, pos.y - CENTER_Y);
                 if (distToCenter > 30) {
                     userRay = pos;
@@ -567,10 +532,12 @@
             }
         });
 
-        // Eventos táctiles para pantallas móviles
+        // --- EVENTOS TÁCTILES CORREGIDOS ---
         canvas.addEventListener('touchstart', function(evt) {
             evt.preventDefault();
             let touch = evt.touches[0];
+            lastTouchPos = touch; // Guardar posición inicial
+            
             let mouseEvent = new MouseEvent("mousedown", {
                 clientX: touch.clientX,
                 clientY: touch.clientY
@@ -581,6 +548,8 @@
         canvas.addEventListener('touchmove', function(evt) {
             evt.preventDefault();
             let touch = evt.touches[0];
+            lastTouchPos = touch; // Actualizar posición mientras se mueve el dedo
+            
             let mouseEvent = new MouseEvent("mousemove", {
                 clientX: touch.clientX,
                 clientY: touch.clientY
@@ -589,9 +558,16 @@
         }, {passive: false});
 
         canvas.addEventListener('touchend', function(evt) {
-            let mouseEvent = new MouseEvent("mouseup", {});
+            evt.preventDefault();
+            // Utilizar la ÚLTIMA posición conocida antes de levantar el dedo
+            let touch = evt.changedTouches[0] || lastTouchPos; 
+            
+            let mouseEvent = new MouseEvent("mouseup", {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
             canvas.dispatchEvent(mouseEvent);
-        });
+        }, {passive: false});
 
         // Iniciar la app
         generateMission();
