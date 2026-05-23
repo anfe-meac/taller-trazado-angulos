@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taller de Trazado de Ángulos</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #eef2f5;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+        p.subtitle {
+            color: #6c757d;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .app-container {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 950px;
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 20px;
+            box-sizing: border-box;
+        }
+
+        /* --- PANEL IZQUIERDO: Misión y Herramientas --- */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .mission-box {
+            background: #fff3cd;
+            border: 2px solid #ffeeba;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .mission-box h3 {
+            margin: 0 0 10px 0;
+            color: #856404;
+            font-size: 1.1rem;
+        }
+        .target-angle {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #d39e00;
+            margin: 0;
+        }
+
+        .tool-section {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .tool-section h4 {
+            margin: 0;
+            color: #495057;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn {
+            background: #e9ecef;
+            border: 2px solid #ced4da;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #495057;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 10px;
+        }
+        .btn:hover { background: #dee2e6; }
+        
+        /* Estados de herramientas activas */
+        .btn.active-tool {
+            background: #cce5ff;
+            border-color: #007bff;
+            color: #004085;
+        }
+
+        .btn-action {
+            background: #28a745;
+            color: white;
+            border-color: #218838;
+            justify-content: center;
+        }
+        .btn-action:hover { background: #218838; }
+        
+        .btn-clear {
+            background: #dc3545;
+            color: white;
+            border-color: #c82333;
+            justify-content: center;
+        }
+        .btn-clear:hover { background: #c82333; }
+
+        /* --- PANEL DERECHO: Canvas --- */
+        .canvas-wrapper {
+            position: relative;
+            background-color: #ffffff;
+            background-image: 
+                linear-gradient(#f1f1f1 1px, transparent 1px),
+                linear-gradient(90deg, #f1f1f1 1px, transparent 1px);
+            background-size: 20px 20px;
+            border: 2px solid #adb5bd;
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            display: block;
+        }
+        /* Cursores dinámicos */
+        .cursor-pencil { cursor: crosshair; }
+        .cursor-ruler { cursor: cell; }
+        
+        .feedback-overlay {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 30px;
+            border-radius: 30px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            display: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+        .feedback-success { background-color: #28a745; }
+        .feedback-error { background-color: #dc3545; }
+
+        @media (max-width: 768px) {
+            .app-container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Taller de Trazado de Ángulos</h1>
+    <p class="subtitle">Usa las herramientas para construir el ángulo exacto que pide la misión.</p>
+
+    <div class="app-container">
+        <div class="sidebar">
+            <div class="mission-box">
+                <h3>TU MISIÓN</h3>
+                <div class="target-angle" id="targetDisplay">290°</div>
+                <button class="btn btn-action" style="margin-top: 10px; width: 100%;" onclick="generateMission()">Generar Otro</button>
+            </div>
+
+            <div class="tool-section">
+                <h4>1. Herramientas</h4>
+                <button class="btn" id="btnToggleProtractor" onclick="toggleProtractor()">📐 Transportador: OFF</button>
+                <button class="btn" id="btnFlipProtractor" onclick="flipProtractor()" disabled>🔄 Girar Abajo/Arriba</button>
+            </div>
+
+            <div class="tool-section">
+                <h4>2. Dibujo</h4>
+                <button class="btn" id="btnToolPencil" onclick="setTool('pencil')">✏️ Lápiz (Punto)</button>
+                <button class="btn" id="btnToolRuler" onclick="setTool('ruler')">📏 Regla (Línea)</button>
+            </div>
+
+            <div class="tool-section" style="border:none; background:transparent; padding:0;">
+                <button class="btn btn-action" onclick="checkAngle()">✅ Comprobar Dibujo</button>
+                <button class="btn btn-clear" onclick="clearDrawing()">🗑️ Borrar Todo</button>
+            </div>
+        </div>
+
+        <div class="canvas-wrapper">
+            <div class="feedback-overlay" id="feedback">¡Correcto!</div>
+            <canvas id="drawCanvas" width="600" height="500"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('drawCanvas');
+        const ctx = canvas.getContext('2d');
+        const feedback = document.getElementById('feedback');
+        
+        // --- ESTADO DE LA APLICACIÓN ---
+        let targetAngle = 290;
+        const CENTER_X = 250; 
+        const CENTER_Y = 250;
+        const P_RADIUS = 200; // Radio del transportador
+
+        let showProtractor = false;
+        let protractorFlipped = false; // false = arriba (0-180), true = abajo (180-360)
+        
+        let currentTool = null; // 'pencil' o 'ruler'
+        
+        // Lo que el usuario dibuja
+        let userPoint = null; // {x, y}
+        let userRay = null;   // {x, y} punto final de la línea
+        
+        let isDrawingLine = false;
+        let mousePos = {x: 0, y: 0};
+
+        // --- INICIALIZACIÓN ---
+        function generateMission() {
+            // Genera un ángulo aleatorio múltiplo de 5 para facilitar el dibujo (entre 20 y 340)
+            targetAngle = Math.floor(Math.random() * 65 + 4) * 5; 
+            if (targetAngle === 180) targetAngle = 175; // Evitar el 180 exacto para que sea más divertido
+            
+            document.getElementById('targetDisplay').innerText = targetAngle + "°";
+            clearDrawing();
+            hideFeedback();
+        }
+
+        // --- CONTROL DE HERRAMIENTAS ---
+        function toggleProtractor() {
+            showProtractor = !showProtractor;
+            const btn = document.getElementById('btnToggleProtractor');
+            const btnFlip = document.getElementById('btnFlipProtractor');
+            
+            if (showProtractor) {
+                btn.innerText = "📐 Transportador: ON";
+                btn.classList.add("active-tool");
+                btnFlip.disabled = false;
+            } else {
+                btn.innerText = "📐 Transportador: OFF";
+                btn.classList.remove("active-tool");
+                btnFlip.disabled = true;
+            }
+            drawScene();
+        }
+
+        function flipProtractor() {
+            protractorFlipped = !protractorFlipped;
+            drawScene();
+        }
+
+        function setTool(tool) {
+            currentTool = tool;
+            document.getElementById('btnToolPencil').classList.remove('active-tool');
+            document.getElementById('btnToolRuler').classList.remove('active-tool');
+            
+            if (tool === 'pencil') {
+                document.getElementById('btnToolPencil').classList.add('active-tool');
+                canvas.className = 'cursor-pencil';
+            } else if (tool === 'ruler') {
+                document.getElementById('btnToolRuler').classList.add('active-tool');
+                canvas.className = 'cursor-ruler';
+            }
+        }
+
+        function clearDrawing() {
+            userPoint = null;
+            userRay = null;
+            isDrawingLine = false;
+            hideFeedback();
+            drawScene();
+        }
+
+        function showFeedback(text, isSuccess) {
+            feedback.innerText = text;
+            feedback.className = "feedback-overlay " + (isSuccess ? "feedback-success" : "feedback-error");
+            feedback.style.display = "block";
+            setTimeout(hideFeedback, 4000);
+        }
+        function hideFeedback() {
+            feedback.style.display = "none";
+        }
+
+        // --- MATEMÁTICAS Y VERIFICACIÓN ---
+        // Convierte grados matemáticos estándar al sistema del Canvas (Y invertido)
+        function getCanvasRadian(deg) {
+            return -deg * Math.PI / 180;
+        }
+
+        function checkAngle() {
+            if (!userRay) {
+                showFeedback("¡Primero usa la regla para trazar la línea!", false);
+                return;
+            }
+
+            // Calcular el ángulo de la línea dibujada
+            // atan2(y, x). Recordar que en canvas, Y crece hacia abajo.
+            let dx = userRay.x - CENTER_X;
+            let dy = userRay.y - CENTER_Y;
+            
+            let rad = Math.atan2(dy, dx); 
+            // Convertir de -PI/PI a grados
+            let deg = rad * 180 / Math.PI;
+            
+            // En canvas:
+            // derecha = 0°
+            // abajo = 90° (que para el estudiante es 360-90 = 270°)
+            // izquierda = 180°
+            // arriba = -90° (que para el estudiante es 90°)
+            
+            let mathDeg = -deg; // Invertir el eje Y
+            if (mathDeg < 0) mathDeg += 360; // Normalizar a 0-360
+            
+            // Tolerancia de 3 grados (para permitir pequeños errores de pulso)
+            let diff = Math.abs(mathDeg - targetAngle);
+            if (diff > 180) diff = 360 - diff; // Por si cruza el 0
+            
+            if (diff <= 3) {
+                showFeedback(`¡Perfecto! Dibujaste ${Math.round(mathDeg)}°`, true);
+            } else {
+                showFeedback(`Casi... Ese ángulo mide ${Math.round(mathDeg)}°. ¡Inténtalo de nuevo!`, false);
+            }
+            
+            drawScene(); // Redibuja para asegurar que se muestre el arco
+        }
+
+        // --- DIBUJO DEL CANVAS ---
+        function drawScene() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            drawBaseElements();
+            
+            if (showProtractor) {
+                drawProtractor();
+            }
+            
+            // Si el usuario está trazando con la regla (fase de arrastre)
+            if (isDrawingLine && currentTool === 'ruler') {
+                ctx.beginPath();
+                ctx.moveTo(CENTER_X, CENTER_Y);
+                ctx.lineTo(mousePos.x, mousePos.y);
+                ctx.strokeStyle = "rgba(0, 0, 0, 0.3)"; // Línea previa gris
+                ctx.lineWidth = 3;
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // Dibujar la línea final del usuario
+            if (userRay) {
+                ctx.beginPath();
+                ctx.moveTo(CENTER_X, CENTER_Y);
+                
+                // Extender la línea visualmente un poco más allá del punto para que parezca un rayo
+                let dx = userRay.x - CENTER_X;
+                let dy = userRay.y - CENTER_Y;
+                let len = Math.hypot(dx, dy);
+                let extX = CENTER_X + (dx/len) * 250;
+                let extY = CENTER_Y + (dy/len) * 250;
+
+                ctx.lineTo(extX, extY);
+                ctx.strokeStyle = "#343a40";
+                ctx.lineWidth = 4;
+                ctx.stroke();
+
+                // DIBUJAR EL ARCO DEL ÁNGULO RESULTANTE
+                let radFinal = Math.atan2(dy, dx);
+                let mathDeg = -radFinal * 180 / Math.PI;
+                if (mathDeg < 0) mathDeg += 360;
+
+                ctx.beginPath();
+                // Si el ángulo es mayor a 180, el arco debe dibujarse por "afuera"
+                // En canvas: arc(x, y, radius, startAngle, endAngle, counterclockwise)
+                // Start = 0 (derecha). 
+                if (mathDeg > 180) {
+                    ctx.arc(CENTER_X, CENTER_Y, 40, 0, radFinal, true); 
+                } else {
+                    ctx.arc(CENTER_X, CENTER_Y, 40, 0, radFinal, true); // En canvas hacia arriba es negativo (counterclockwise = true)
+                }
+                ctx.strokeStyle = "rgba(220, 53, 69, 0.7)"; // Rojo
+                ctx.lineWidth = 10;
+                ctx.stroke();
+            }
+
+            // Dibujar el punto del usuario encima de todo
+            if (userPoint) {
+                ctx.beginPath();
+                ctx.arc(userPoint.x, userPoint.y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = "#dc3545"; // Punto rojo
+                ctx.fill();
+                ctx.strokeStyle = "white";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        function drawBaseElements() {
+            // Vértice central
+            ctx.beginPath();
+            ctx.arc(CENTER_X, CENTER_Y, 6, 0, Math.PI * 2);
+            ctx.fillStyle = "#333";
+            ctx.fill();
+
+            // Línea Base (0°) hacia la derecha (Sólida)
+            ctx.beginPath();
+            ctx.moveTo(CENTER_X, CENTER_Y);
+            ctx.lineTo(CENTER_X + 280, CENTER_Y);
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            // Línea Base (180°) hacia la izquierda (Punteada - guía visual)
+            ctx.beginPath();
+            ctx.setLineDash([8, 8]);
+            ctx.moveTo(CENTER_X, CENTER_Y);
+            ctx.lineTo(CENTER_X - 250, CENTER_Y);
+            ctx.strokeStyle = "#999";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function drawProtractor() {
+            ctx.save();
+            ctx.translate(CENTER_X, CENTER_Y);
+            
+            // Si está invertido, rotar el contexto para dibujar la mitad inferior
+            if (protractorFlipped) {
+                ctx.rotate(Math.PI); 
+            }
+
+            // Cuerpo del transportador
+            ctx.beginPath();
+            ctx.arc(0, 0, P_RADIUS, Math.PI, 0, false);
+            ctx.lineTo(P_RADIUS, 0);
+            ctx.lineTo(-P_RADIUS, 0);
+            ctx.fillStyle = "rgba(182, 215, 168, 0.85)"; // Verde suave como en la imagen
+            ctx.fill();
+            ctx.strokeStyle = "#38761d";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Marcas y números
+            for (let i = 0; i <= 180; i++) {
+                // En canvas normal, -PI va por arriba
+                let rad = -i * Math.PI / 180;
+                let cosA = Math.cos(rad);
+                let sinA = Math.sin(rad);
+                
+                let tickLength = (i % 10 === 0) ? 15 : (i % 5 === 0) ? 10 : 5;
+                ctx.beginPath();
+                ctx.moveTo((P_RADIUS - tickLength) * cosA, (P_RADIUS - tickLength) * sinA);
+                ctx.lineTo(P_RADIUS * cosA, P_RADIUS * sinA);
+                ctx.strokeStyle = "#38761d";
+                ctx.lineWidth = (i % 10 === 0) ? 2 : 1;
+                ctx.stroke();
+
+                if (i % 10 === 0) {
+                    // Para que los números no queden de cabeza cuando giramos el transportador, 
+                    // debemos corregir la rotación del texto temporalmente.
+                    ctx.save();
+                    let textX = (P_RADIUS - 25) * cosA;
+                    let textY = (P_RADIUS - 25) * sinA;
+                    
+                    ctx.translate(textX, textY);
+                    
+                    if (protractorFlipped) {
+                        ctx.rotate(Math.PI); // Enderezar el texto
+                    }
+
+                    // Escala Principal (0 a la derecha)
+                    let num = i; 
+                    
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.font = "12px Arial";
+                    ctx.fillStyle = "#111";
+                    
+                    // Solo dibujamos la escala principal para forzarlos a pensar
+                    ctx.fillText(num, 0, 0);
+                    
+                    ctx.restore();
+                }
+            }
+            
+            // Punto central del transportador
+            ctx.beginPath();
+            ctx.arc(0, 0, 4, 0, Math.PI*2);
+            ctx.fillStyle = "#dc3545"; // Rojo
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // --- EVENTOS DEL MOUSE ---
+        function getMousePos(evt) {
+            let rect = canvas.getBoundingClientRect();
+            let scaleX = canvas.width / rect.width;
+            let scaleY = canvas.height / rect.height;
+            return {
+                x: (evt.clientX - rect.left) * scaleX,
+                y: (evt.clientY - rect.top) * scaleY
+            };
+        }
+
+        canvas.addEventListener('mousemove', function(evt) {
+            mousePos = getMousePos(evt);
+            if (isDrawingLine && currentTool === 'ruler') {
+                drawScene(); // Actualizar la línea de preview
+            }
+        });
+
+        canvas.addEventListener('mousedown', function(evt) {
+            if (!currentTool) {
+                showFeedback("Selecciona Lápiz o Regla en el menú izquierdo.", false);
+                return;
+            }
+
+            let pos = getMousePos(evt);
+
+            if (currentTool === 'pencil') {
+                // Colocar punto (solo si da clic lejos del centro)
+                let dist = Math.hypot(pos.x - CENTER_X, pos.y - CENTER_Y);
+                if (dist > 20) {
+                    userPoint = { x: pos.x, y: pos.y };
+                    // Resetear la línea si marcan un punto nuevo
+                    userRay = null; 
+                    drawScene();
+                }
+            } 
+            else if (currentTool === 'ruler') {
+                // Iniciar trazado de línea
+                isDrawingLine = true;
+            }
+        });
+
+        canvas.addEventListener('mouseup', function(evt) {
+            if (isDrawingLine && currentTool === 'ruler') {
+                isDrawingLine = false;
+                let pos = getMousePos(evt);
+                
+                // Si trazó cerca de su punto guía, hacer que "encaje" (Snap)
+                if (userPoint) {
+                    let distToPoint = Math.hypot(pos.x - userPoint.x, pos.y - userPoint.y);
+                    if (distToPoint < 30) {
+                        pos = { x: userPoint.x, y: userPoint.y };
+                    }
+                }
+                
+                // Validar que la línea no sea muy corta
+                let distToCenter = Math.hypot(pos.x - CENTER_X, pos.y - CENTER_Y);
+                if (distToCenter > 30) {
+                    userRay = pos;
+                }
+                drawScene();
+            }
+        });
+
+        // Eventos táctiles para pantallas móviles
+        canvas.addEventListener('touchstart', function(evt) {
+            evt.preventDefault();
+            let touch = evt.touches[0];
+            let mouseEvent = new MouseEvent("mousedown", {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            canvas.dispatchEvent(mouseEvent);
+        }, {passive: false});
+
+        canvas.addEventListener('touchmove', function(evt) {
+            evt.preventDefault();
+            let touch = evt.touches[0];
+            let mouseEvent = new MouseEvent("mousemove", {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            canvas.dispatchEvent(mouseEvent);
+        }, {passive: false});
+
+        canvas.addEventListener('touchend', function(evt) {
+            let mouseEvent = new MouseEvent("mouseup", {});
+            canvas.dispatchEvent(mouseEvent);
+        });
+
+        // Iniciar la app
+        generateMission();
+    </script>
+</body>
+</html>
